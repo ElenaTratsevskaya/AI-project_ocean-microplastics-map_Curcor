@@ -17,6 +17,9 @@ Nyadjro et al. (2023). *Scientific Data*. [doi:10.1038/s41597-023-02632-y](https
 
 Для тайлов карты нужен доступ в интернет.
 
+[Ссылка открытого доступа на карту](https://elenatratsevskaya.github.io/AI-project_ocean-microplastics-map_Curcor/ocean-microplastics-map.html)  
+
+
 ## Как пользоваться
 
 | Элемент | Что делает |
