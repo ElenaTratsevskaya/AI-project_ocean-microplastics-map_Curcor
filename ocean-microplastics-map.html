@@ -26,7 +26,7 @@
     .head .src { font-size: 1.45cqh; font-weight: 400; color: #b7c3d4; line-height: 1.15; margin-top: 0.35cqh; }
     .mapbox { height: 75%; width: 90%; margin: 0 auto; position: relative; flex: 0 0 auto; background: #0b1220; }
     #map { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-    .ui { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 1.8cqh; z-index: 3; }
+    .ui { position: absolute; top: 1.1cqh; left: 50%; transform: translateX(-50%); display: flex; gap: 1.8cqh; z-index: 3; }
     button {
       appearance: none; border: 0; padding: 0.85cqh 1.5cqh; border-radius: 5px;
       cursor: pointer; min-width: 20cqh; color: #fff; text-align: center;
@@ -40,11 +40,11 @@
     #btnWater { background: var(--blue); }
     #btnPollute { background: var(--red); }
     .bi .en { display: block; font-size: 1.55cqh; line-height: 1.1; color: #fff; }
-    .legend { position: absolute; border: 0; background: transparent; z-index: 3; color: #e8eef8; padding: 3px 6px 3px 0; border-radius: 3px; pointer-events: none; line-height: 1.15; }
-    .legend .cap { font-size: 10px; margin-bottom: 1px; line-height: 1.15; }
-    .sw { display: flex; align-items: center; gap: 4px; margin: 0; line-height: 1.15; }
-    .sw .en { font-size: 10px; color: #e8eef8; line-height: 1.15; }
-    .dot { width: 6px; height: 6px; border-radius: 50%; flex: 0 0 auto; }
+    .legend { position: absolute; border: 0; background: transparent; z-index: 3; color: #e8eef8; padding: 0.28cqh 0.55cqh 0.28cqh 0; border-radius: 0.28cqh; pointer-events: none; line-height: 1.15; }
+    .legend .cap { font-size: 0.93cqh; margin-bottom: 0.1cqh; line-height: 1.15; }
+    .sw { display: flex; align-items: center; gap: 0.37cqh; margin: 0; line-height: 1.15; }
+    .sw .en { font-size: 0.93cqh; color: #e8eef8; line-height: 1.15; }
+    .dot { width: 0.56cqh; height: 0.56cqh; border-radius: 50%; flex: 0 0 auto; }
     .chartbox { height: 15%; width: 100%; flex: 0 0 auto; background: #0b1220; }
     #chart { display: block; width: 100%; height: 100%; }
   </style>
@@ -187,9 +187,10 @@
       }
       mctx.globalAlpha = 1;
       const legend = document.getElementById("legend");
-      legend.style.left = (F.ox + 8) + "px";
+      const lpad = Math.max(4, F.mh * 0.014);
+      legend.style.left = (F.ox + lpad) + "px";
       legend.style.top = "auto";
-      legend.style.bottom = (S.h - F.oy - F.mh + 10) + "px";
+      legend.style.bottom = (S.h - F.oy - F.mh + lpad) + "px";
     }
     function strokeSmooth(ctx, pts) {
       if (pts.length < 2) return;
@@ -215,11 +216,11 @@
       }
       ctx.stroke();
     }
-    function lineLabel(ctx, en, x, y, color, align) {
+    function lineLabel(ctx, en, x, y, color, align, size) {
       ctx.textAlign = align || "left";
       ctx.textBaseline = "middle";
       ctx.fillStyle = color;
-      ctx.font = "11px Segoe UI, system-ui, sans-serif";
+      ctx.font = (size || 11) + "px Segoe UI, system-ui, sans-serif";
       ctx.fillText(en, x, y);
     }
     function drawChart() {
@@ -231,8 +232,15 @@
       const left = (S.w - mr.width) / 2 + F.ox;
       const plotW = F.mw;
       const right = left + plotW;
-      const top = 28, bottom = 20;
-      const ph = S.h - top - bottom;
+      const u = S.h / 162;
+      const fs = Math.max(6, 11 * u);
+      const fsTick = Math.max(5.5, 10 * u);
+      const fsMark = Math.max(7, 13 * u);
+      const gap = Math.max(3, 6 * u);
+      const top = Math.max(fs * 1.8, S.h * 0.173);
+      const bottom = Math.max(fs * 1.45, S.h * 0.123);
+      const ph = Math.max(8, S.h - top - bottom);
+      const yCap = top * 0.38;
       const years = [], nY = [], cumP = [], cumN = [];
       let lastP = 0, lastN = 0;
       for (let y = 2008; y <= 2023; y++) {
@@ -260,17 +268,18 @@
       cctx.strokeRect(left, top, plotW, ph);
 
       cctx.textBaseline = "middle";
-      cctx.font = "11px Segoe UI, system-ui, sans-serif";
+      cctx.font = fs + "px Segoe UI, system-ui, sans-serif";
       cctx.fillStyle = INK;
       cctx.textAlign = "right";
-      cctx.fillText("pieces/m³", left - 6, 10);
+      cctx.fillText("pieces/m³", left - gap, yCap);
       cctx.textAlign = "left";
-      cctx.fillText("samples", right + 6, 10);
+      cctx.fillText("samples", right + gap, yCap);
 
       cctx.textBaseline = "middle";
-      cctx.font = "10px Segoe UI, system-ui, sans-serif";
-      for (let t = 0; t <= 3; t++) {
-        const y = yP(maxP * t / 3);
+      cctx.font = fsTick + "px Segoe UI, system-ui, sans-serif";
+      const tMax = ph < 40 ? 2 : 3;
+      for (let t = 0; t <= tMax; t++) {
+        const y = yP(maxP * t / tMax);
         cctx.strokeStyle = "#2a3340";
         cctx.beginPath();
         cctx.moveTo(left, y);
@@ -278,24 +287,30 @@
         cctx.stroke();
         cctx.fillStyle = INK2;
         cctx.textAlign = "right";
-        const pv = maxP * t / 3;
-        cctx.fillText(pv >= 1000 ? (pv / 1000).toFixed(1) + "k" : String(Math.round(pv)), left - 6, y);
+        const pv = maxP * t / tMax;
+        cctx.fillText(pv >= 1000 ? (pv / 1000).toFixed(1) + "k" : String(Math.round(pv)), left - gap, y);
         cctx.textAlign = "left";
-        cctx.fillText(Math.round(maxN * t / 3).toLocaleString("en-US"), right + 6, yN(maxN * t / 3));
+        cctx.fillText(Math.round(maxN * t / tMax).toLocaleString("en-US"), right + gap, yN(maxN * t / tMax));
       }
 
       cctx.textAlign = "center";
       cctx.textBaseline = "alphabetic";
-      cctx.font = "11px Segoe UI, system-ui, sans-serif";
+      cctx.font = fs + "px Segoe UI, system-ui, sans-serif";
+      const yw = cctx.measureText("0000").width;
+      let yStep = 1;
+      if (years.length > 1 && yw * 1.3 * years.length > plotW) yStep = 2;
+      if (yw * 1.3 * (years.length / yStep) > plotW) yStep = 4;
+      const tickH = 4 * u;
       for (let i = 0; i < years.length; i++) {
         const x = xAt(i);
         cctx.beginPath();
         cctx.strokeStyle = "#2a3340";
         cctx.moveTo(x, top + ph);
-        cctx.lineTo(x, top + ph + 4);
+        cctx.lineTo(x, top + ph + tickH);
         cctx.stroke();
+        if (i % yStep !== 0 && i !== years.length - 1) continue;
         cctx.fillStyle = INK2;
-        cctx.fillText(String(years[i]), x, top + ph + 16);
+        cctx.fillText(String(years[i]), x, top + ph + bottom * 0.78);
       }
 
       const ptsN = [], ptsP = [];
@@ -308,9 +323,9 @@
       if (i >= 0) {
         cctx.save();
         cctx.beginPath();
-        cctx.rect(left, top - 4, Math.max(0, xAt(i) - left), ph + 8);
+        cctx.rect(left, top - 4 * u, Math.max(0, xAt(i) - left), ph + 8 * u);
         cctx.clip();
-        cctx.lineWidth = 2;
+        cctx.lineWidth = Math.max(1, 2 * u);
         cctx.strokeStyle = BLUE;
         strokeSmooth(cctx, ptsN);
         cctx.strokeStyle = RED;
@@ -319,41 +334,44 @@
         cctx.lineWidth = 1;
       }
 
-      lineLabel(cctx, "Cumulative pollution", left + 8, 10, RED, "left");
-      lineLabel(cctx, "Cumulative measurements", right - 8, 10, BLUE, "right");
+      lineLabel(cctx, "Cumulative pollution", left + 8 * u, yCap, RED, "left", fs);
+      lineLabel(cctx, "Cumulative measurements", right - 8 * u, yCap, BLUE, "right", fs);
 
       if (i >= 0) {
         const cx = xAt(i);
+        const nx = 8 * u;
+        const ny = top + fsMark * 0.92;
         cctx.strokeStyle = "#e8eef8";
-        cctx.lineWidth = 2;
+        cctx.lineWidth = Math.max(1, 2 * u);
         cctx.beginPath();
-        cctx.moveTo(cx, top - 2);
-        cctx.lineTo(cx, top + ph + 6);
+        cctx.moveTo(cx, top - 2 * u);
+        cctx.lineTo(cx, top + ph + 6 * u);
         cctx.stroke();
         cctx.lineWidth = 1;
-        cctx.font = "13px Segoe UI, system-ui, sans-serif";
+        cctx.font = fsMark + "px Segoe UI, system-ui, sans-serif";
         cctx.fillStyle = INK;
         cctx.textBaseline = "alphabetic";
         cctx.textAlign = "right";
-        cctx.fillText(String(years[i]), cx - 8, top + 12);
+        cctx.fillText(String(years[i]), cx - nx, ny);
         cctx.textAlign = "left";
         const num = String(nY[i]);
         const tm = cctx.measureText(num);
-        const padX = 7, padY = 3, rad = 5;
-        const asc = tm.actualBoundingBoxAscent || 10;
-        const desc = tm.actualBoundingBoxDescent || 3;
+        const padX = 7 * u, padY = 3 * u, rad = 5 * u;
+        const asc = tm.actualBoundingBoxAscent || fsMark * 0.8;
+        const desc = tm.actualBoundingBoxDescent || fsMark * 0.25;
         cctx.fillStyle = pollution ? RED : BLUE;
         cctx.beginPath();
-        cctx.roundRect(cx + 8 - padX, top + 12 - asc - padY, tm.width + padX * 2, asc + desc + padY * 2, rad);
+        cctx.roundRect(cx + nx - padX, ny - asc - padY, tm.width + padX * 2, asc + desc + padY * 2, rad);
         cctx.fill();
         cctx.fillStyle = "#fff";
-        cctx.fillText(num, cx + 8, top + 12);
-        cctx.lineWidth = 1.5;
+        cctx.fillText(num, cx + nx, ny);
+        cctx.lineWidth = Math.max(1, 1.5 * u);
         cctx.strokeStyle = "#0b1220";
         cctx.fillStyle = pollution ? RED : BLUE;
+        const mrk = Math.max(1.6, 4.4 * u);
         for (let j = 0; j <= i; j++) {
           cctx.beginPath();
-          cctx.arc(xAt(j), pollution ? yP(cumP[j]) : yN(cumN[j]), 4.4, 0, Math.PI * 2);
+          cctx.arc(xAt(j), pollution ? yP(cumP[j]) : yN(cumN[j]), mrk, 0, Math.PI * 2);
           cctx.fill();
           cctx.stroke();
         }
