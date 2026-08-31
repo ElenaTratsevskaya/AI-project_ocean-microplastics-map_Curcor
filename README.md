@@ -69,3 +69,12 @@ Nyadjro et al. (2023). *Scientific Data*. [doi:10.1038/s41597-023-02632-y](https
 Код визуализации в этом репозитории можно использовать и распространять.  
 На исходные наблюдения распространяются условия NOAA NCEI и авторов датасета.
 
+**Скриншоты карты** 
+<img width="1190" height="908" alt="02" src="https://github.com/user-attachments/assets/00dca27e-573f-4edc-89e8-f6fd94a93223" />
+
+
+<img width="1204" height="910" alt="01" src="https://github.com/user-attachments/assets/7d8b4b78-c904-4eeb-810c-129c94fe8f17" />
+
+
+
+
