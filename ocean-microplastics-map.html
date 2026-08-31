@@ -26,7 +26,7 @@
     .head .src { font-size: 1.45cqh; font-weight: 400; color: #b7c3d4; line-height: 1.15; margin-top: 0.35cqh; }
     .mapbox { height: 75%; width: 90%; margin: 0 auto; position: relative; flex: 0 0 auto; background: #0b1220; }
     #map { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-    .ui { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 1.8cqh; z-index: 3; }
+    .ui { position: absolute; top: min(10px, 1.43cqh); left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 1.8cqh; z-index: 3; }
     .ui-btns { display: flex; gap: 1.8cqh; }
     button {
       appearance: none; border: 0; padding: 0.85cqh 1.5cqh; border-radius: 5px;
@@ -52,7 +52,7 @@
     .bi .en { display: block; font-size: 1.55cqh; line-height: 1.1; color: #fff; }
     #yearNum { font-size: 3.2cqh; font-weight: 650; color: #b7c3d4; line-height: 1.15; transform: translateY(-30%); width: 100%; text-align: center; }
     #pauseIcon {
-      position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); z-index: 3;
+      position: absolute; left: 50%; bottom: min(10px, 1.43cqh); transform: translateX(-50%); z-index: 3;
       width: calc(0.85cqh * 2 + 1.55cqh * 1.1); height: calc(0.85cqh * 2 + 1.55cqh * 1.1);
       background: #b7c3d4; border-radius: 5px;
       display: flex; align-items: center; justify-content: center; gap: 8%;
@@ -66,11 +66,11 @@
       border-top: 0.9cqh solid transparent; border-bottom: 0.9cqh solid transparent;
       border-left: 1.45cqh solid #3e4764;
     }
-    .legend { position: absolute; border: 0; background: transparent; z-index: 3; color: #e8eef8; padding: 3px 6px 3px 0; border-radius: 3px; pointer-events: none; line-height: 1.15; }
-    .legend .cap { font-size: 10px; margin-bottom: 1px; line-height: 1.15; }
-    .sw { display: flex; align-items: center; gap: 4px; margin: 0; line-height: 1.15; }
-    .sw .en { font-size: 10px; color: #e8eef8; line-height: 1.15; }
-    .dot { width: 6px; height: 6px; border-radius: 50%; flex: 0 0 auto; }
+    .legend { position: absolute; border: 0; background: transparent; z-index: 3; color: #e8eef8; padding: min(3px, 0.43cqh) min(6px, 0.86cqh) min(3px, 0.43cqh) 0; border-radius: min(3px, 0.43cqh); pointer-events: none; line-height: 1.15; }
+    .legend .cap { font-size: min(10px, 1.43cqh); margin-bottom: min(1px, 0.14cqh); line-height: 1.15; }
+    .sw { display: flex; align-items: center; gap: min(4px, 0.57cqh); margin: 0; line-height: 1.15; }
+    .sw .en { font-size: min(10px, 1.43cqh); color: #e8eef8; line-height: 1.15; }
+    .dot { width: min(6px, 0.86cqh); height: min(6px, 0.86cqh); border-radius: 50%; flex: 0 0 auto; }
     .chartbox { height: 15%; width: 100%; flex: 0 0 auto; background: #0b1220; }
     #chart { display: block; width: 100%; height: 100%; }
   </style>
@@ -223,9 +223,9 @@
       }
       mctx.globalAlpha = 1;
       const legend = document.getElementById("legend");
-      legend.style.left = (F.ox + 8) + "px";
+      legend.style.left = (F.ox + 8 * boardU()) + "px";
       legend.style.top = "auto";
-      legend.style.bottom = (S.h - F.oy - F.mh + 10) + "px";
+      legend.style.bottom = (S.h - F.oy - F.mh + 10 * boardU()) + "px";
     }
     function strokeSmooth(ctx, pts) {
       if (pts.length < 2) return;
@@ -251,15 +251,21 @@
       }
       ctx.stroke();
     }
-    function lineLabel(ctx, en, x, y, color, align) {
+    function boardU() {
+      const h = chartCv.getBoundingClientRect().height;
+      if (!(h > 0) || h >= 98) return 1;
+      return h / 98;
+    }
+    function lineLabel(ctx, en, x, y, color, align, px) {
       ctx.textAlign = align || "left";
       ctx.textBaseline = "middle";
       ctx.fillStyle = color;
-      ctx.font = "11px Segoe UI, system-ui, sans-serif";
+      ctx.font = (px || 11) + "px Segoe UI, system-ui, sans-serif";
       ctx.fillText(en, x, y);
     }
     function drawChart() {
       const S = fitCanvas(chartCv, cctx);
+      const u = boardU();
       cctx.fillStyle = "#0b1220";
       cctx.fillRect(0, 0, S.w, S.h);
       const mr = mapCv.getBoundingClientRect();
@@ -267,8 +273,9 @@
       const left = (S.w - mr.width) / 2 + F.ox;
       const plotW = F.mw;
       const right = left + plotW;
-      const top = 28, bottom = 20;
-      const ph = S.h - top - bottom;
+      const top = 28 * u, bottom = 20 * u;
+      const ph = Math.max(1, S.h - top - bottom);
+      const font = function (px) { return (px * u) + "px Segoe UI, system-ui, sans-serif"; };
       const years = [], nY = [], cumP = [], cumN = [];
       let lastP = 0, lastN = 0;
       for (let y = 2008; y <= 2023; y++) {
@@ -296,15 +303,15 @@
       cctx.strokeRect(left, top, plotW, ph);
 
       cctx.textBaseline = "middle";
-      cctx.font = "11px Segoe UI, system-ui, sans-serif";
+      cctx.font = font(11);
       cctx.fillStyle = INK;
       cctx.textAlign = "right";
-      cctx.fillText("pieces/m³", left - 6, 10);
+      cctx.fillText("pieces/m³", left - 6 * u, 10 * u);
       cctx.textAlign = "left";
-      cctx.fillText("samples", right + 6, 10);
+      cctx.fillText("samples", right + 6 * u, 10 * u);
 
       cctx.textBaseline = "middle";
-      cctx.font = "10px Segoe UI, system-ui, sans-serif";
+      cctx.font = font(10);
       for (let t = 0; t <= 3; t++) {
         const y = yP(maxP * t / 3);
         cctx.strokeStyle = "#2a3340";
@@ -315,24 +322,24 @@
         cctx.fillStyle = INK2;
         cctx.textAlign = "right";
         const pv = maxP * t / 3;
-        cctx.fillText(Math.round(pv).toLocaleString("en-US"), left - 6, y);
+        cctx.fillText(Math.round(pv).toLocaleString("en-US"), left - 6 * u, y);
         cctx.textAlign = "left";
         const nv = maxN * t / 3;
-        cctx.fillText(nv >= 1000 ? (nv / 1000).toFixed(1).replace(/\.0$/, "") + "k" : String(Math.round(nv)), right + 6, yN(nv));
+        cctx.fillText(nv >= 1000 ? (nv / 1000).toFixed(1).replace(/\.0$/, "") + "k" : String(Math.round(nv)), right + 6 * u, yN(nv));
       }
 
       cctx.textAlign = "center";
       cctx.textBaseline = "alphabetic";
-      cctx.font = "11px Segoe UI, system-ui, sans-serif";
+      cctx.font = font(11);
       for (let i = 0; i < years.length; i++) {
         const x = xAt(i);
         cctx.beginPath();
         cctx.strokeStyle = "#2a3340";
         cctx.moveTo(x, top + ph);
-        cctx.lineTo(x, top + ph + 4);
+        cctx.lineTo(x, top + ph + 4 * u);
         cctx.stroke();
         cctx.fillStyle = INK2;
-        cctx.fillText(String(years[i]), x, top + ph + 16);
+        cctx.fillText(String(years[i]), x, top + ph + 16 * u);
       }
 
       const ptsN = [], ptsP = [];
@@ -345,9 +352,9 @@
       if (i >= 0) {
         cctx.save();
         cctx.beginPath();
-        cctx.rect(left, top - 4, Math.max(0, xAt(i) - left), ph + 8);
+        cctx.rect(left, top - 4 * u, Math.max(0, xAt(i) - left), ph + 8 * u);
         cctx.clip();
-        cctx.lineWidth = 2;
+        cctx.lineWidth = Math.max(1, 2 * u);
         cctx.strokeStyle = BLUE;
         strokeSmooth(cctx, ptsN);
         cctx.strokeStyle = RED;
@@ -356,44 +363,44 @@
         cctx.lineWidth = 1;
       }
 
-      lineLabel(cctx, "Cumulative pollution", left + 8, 10, RED, "left");
-      lineLabel(cctx, "Cumulative measurements", right - 8, 10, BLUE, "right");
+      lineLabel(cctx, "Cumulative pollution", left + 8 * u, 10 * u, RED, "left", 11 * u);
+      lineLabel(cctx, "Cumulative measurements", right - 8 * u, 10 * u, BLUE, "right", 11 * u);
 
       if (i >= 0) {
         const cx = xAt(i);
         cctx.strokeStyle = "#e8eef8";
-        cctx.lineWidth = 2;
+        cctx.lineWidth = Math.max(1, 2 * u);
         cctx.beginPath();
-        cctx.moveTo(cx, top - 2);
-        cctx.lineTo(cx, top + ph + 6);
+        cctx.moveTo(cx, top - 2 * u);
+        cctx.lineTo(cx, top + ph + 6 * u);
         cctx.stroke();
         cctx.lineWidth = 1;
-        cctx.font = "13px Segoe UI, system-ui, sans-serif";
+        cctx.font = font(13);
         cctx.fillStyle = INK;
         cctx.textBaseline = "alphabetic";
         cctx.textAlign = "right";
-        cctx.fillText(String(years[i]), cx - 8, top + 12);
+        cctx.fillText(String(years[i]), cx - 8 * u, top + 12 * u);
         cctx.textAlign = "left";
         const val = pollution ? cumP[i] : cumN[i];
         const num = pollution
           ? Math.round(val).toLocaleString("en-US")
           : (val >= 1000 ? (val / 1000).toFixed(1).replace(/\.0$/, "") + "k" : String(Math.round(val)));
         const tm = cctx.measureText(num);
-        const padX = 7, padY = 3, rad = 5;
-        const asc = tm.actualBoundingBoxAscent || 10;
-        const desc = tm.actualBoundingBoxDescent || 3;
+        const padX = 7 * u, padY = 3 * u, rad = 5 * u;
+        const asc = tm.actualBoundingBoxAscent || 10 * u;
+        const desc = tm.actualBoundingBoxDescent || 3 * u;
         cctx.fillStyle = pollution ? RED : BLUE;
         cctx.beginPath();
-        cctx.roundRect(cx + 8 - padX, top + 12 - asc - padY, tm.width + padX * 2, asc + desc + padY * 2, rad);
+        cctx.roundRect(cx + 8 * u - padX, top + 12 * u - asc - padY, tm.width + padX * 2, asc + desc + padY * 2, rad);
         cctx.fill();
         cctx.fillStyle = "#fff";
-        cctx.fillText(num, cx + 8, top + 12);
-        cctx.lineWidth = 1.5;
+        cctx.fillText(num, cx + 8 * u, top + 12 * u);
+        cctx.lineWidth = Math.max(1, 1.5 * u);
         cctx.strokeStyle = "#0b1220";
         cctx.fillStyle = pollution ? RED : BLUE;
         for (let j = 0; j <= i; j++) {
           cctx.beginPath();
-          cctx.arc(xAt(j), pollution ? yP(cumP[j]) : yN(cumN[j]), 4.4, 0, Math.PI * 2);
+          cctx.arc(xAt(j), pollution ? yP(cumP[j]) : yN(cumN[j]), 4.4 * u, 0, Math.PI * 2);
           cctx.fill();
           cctx.stroke();
         }
