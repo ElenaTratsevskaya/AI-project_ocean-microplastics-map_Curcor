@@ -2,7 +2,8 @@
 Microplastic pollution of the world ocean
 
 Interactive map of marine microplastic samples and pollution classes, 2008–2023. Data: NOAA NCEI Global Marine Microplastics Database.
-перевод: Интерактивная карта проб микропластика и классов загрязнения, 2008–2023. Данные: NOAA NCEI.
+Интерактивная карта проб микропластика и классов загрязнения, 2008–2023. <br>
+Данные: NOAA NCEI.
 
 **NOAA NCEI** — Национальные центры экологической информации США (National Centers for Environmental Information). Это архив Национального управления океанических и атмосферных исследований (NOAA): погода, климат, океан, побережье и геофизика. Данные открыты для науки, государства и всех, кто ими пользуется. Отсюда и база Global Marine Microplastics Database.
 
