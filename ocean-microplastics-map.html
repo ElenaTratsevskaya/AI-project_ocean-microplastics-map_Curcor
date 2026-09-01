@@ -66,7 +66,7 @@
       border-top: 0.9cqh solid transparent; border-bottom: 0.9cqh solid transparent;
       border-left: 1.45cqh solid #3e4764;
     }
-    .legend { position: absolute; border: 0; background: transparent; z-index: 3; color: #e8eef8; padding: calc(3px * var(--u, 1)) calc(6px * var(--u, 1)) calc(3px * var(--u, 1)) 0; border-radius: 3px; pointer-events: none; line-height: 1.15; }
+    .legend { position: absolute; border: 0; background: transparent; z-index: 3; color: #e8eef8; padding: calc(3px * var(--u, 1)) calc(6px * var(--u, 1)) calc(3px * var(--u, 1)) 0; border-radius: 3px; pointer-events: none; line-height: 1.267875; }
     .map-attr { position: absolute; z-index: 3; pointer-events: none; color: #b7c3d4; font-size: calc(10px * var(--u, 1)); line-height: 1.15; white-space: nowrap; text-align: right; }
     .map-attr div { text-align: right; }
     #tip {
@@ -78,9 +78,9 @@
     }
     #tip .val { font-weight: 700; }
     #map.paused { cursor: pointer; }
-    .legend .cap { font-size: calc(10px * var(--u, 1)); margin-bottom: calc(1px * var(--u, 1)); line-height: 1.15; }
-    .sw { display: flex; align-items: center; gap: calc(4px * var(--u, 1)); margin: 0; line-height: 1.15; }
-    .sw .en { font-size: calc(10px * var(--u, 1)); color: #e8eef8; line-height: 1.15; }
+    .legend .cap { font-size: calc(10px * var(--u, 1)); margin-bottom: calc(1.1025px * var(--u, 1)); line-height: 1.267875; }
+    .sw { display: flex; align-items: center; gap: calc(4px * var(--u, 1)); margin: 0; line-height: 1.267875; }
+    .sw .en { font-size: calc(10px * var(--u, 1)); color: #e8eef8; line-height: 1.267875; }
     .sw .rng, .cap .rng { color: #b7c3d4; }
     .dot { width: calc(6px * var(--u, 1)); height: calc(6px * var(--u, 1)); border-radius: 50%; flex: 0 0 auto; }
     .chartbox { height: 15%; width: 100%; flex: 0 0 auto; background: #0b1220; }
@@ -118,7 +118,7 @@
           <div class="sw"><span class="dot" style="background:#a61823"></span><span class="en">High <span class="rng">(1–10)</span></span></div>
           <div class="sw"><span class="dot" style="background:#780116"></span><span class="en">Very High <span class="rng">(≥10)</span></span></div>
         </div>
-        <div class="map-attr" id="mapAttr"><div>© Elena Tr.</div><div>Imagery © Google</div></div>
+        <div class="map-attr" id="mapAttr"><div>Project © Elena Tr.</div><div>Imagery © Google</div></div>
         <div id="tip"><div id="tipCoord"></div><div class="val" id="tipVal"></div></div>
       </div>
       <div class="chartbox"><canvas id="chart"></canvas></div>
