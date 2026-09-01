@@ -78,9 +78,10 @@
     }
     #tip .val { font-weight: 700; }
     #map.paused { cursor: pointer; }
-    .legend .cap { font-size: calc(12px * var(--u, 1)); margin-bottom: calc(1px * var(--u, 1)); line-height: 1.15; }
+    .legend .cap { font-size: calc(10px * var(--u, 1)); margin-bottom: calc(1px * var(--u, 1)); line-height: 1.15; }
     .sw { display: flex; align-items: center; gap: calc(4px * var(--u, 1)); margin: 0; line-height: 1.15; }
-    .sw .en { font-size: calc(12px * var(--u, 1)); color: #e8eef8; line-height: 1.15; }
+    .sw .en { font-size: calc(10px * var(--u, 1)); color: #e8eef8; line-height: 1.15; }
+    .sw .rng, .cap .rng { color: #b7c3d4; }
     .dot { width: calc(6px * var(--u, 1)); height: calc(6px * var(--u, 1)); border-radius: 50%; flex: 0 0 auto; }
     .chartbox { height: 15%; width: 100%; flex: 0 0 auto; background: #0b1220; }
     #chart { display: block; width: 100%; height: 100%; }
@@ -110,12 +111,12 @@
         </div>
         <div id="pauseIcon"><span></span><span></span></div>
         <div class="legend" id="legend">
-          <div class="cap">Pollution class</div>
-          <div class="sw"><span class="dot" style="background:#b7c3d4"></span><span class="en">Very Low (0–0.0005)</span></div>
-          <div class="sw"><span class="dot" style="background:#d6888c"></span><span class="en">Low (0.0005–0.005)</span></div>
-          <div class="sw"><span class="dot" style="background:#d32f2f"></span><span class="en">Medium (0.005–1)</span></div>
-          <div class="sw"><span class="dot" style="background:#a61823"></span><span class="en">High (1–10)</span></div>
-          <div class="sw"><span class="dot" style="background:#780116"></span><span class="en">Very High (≥10)</span></div>
+          <div class="cap">Pollution class <span class="rng">(pieces/m³)</span></div>
+          <div class="sw"><span class="dot" style="background:#b7c3d4"></span><span class="en">Very Low <span class="rng">(0–0.0005)</span></span></div>
+          <div class="sw"><span class="dot" style="background:#d6888c"></span><span class="en">Low <span class="rng">(0.0005–0.005)</span></span></div>
+          <div class="sw"><span class="dot" style="background:#d32f2f"></span><span class="en">Medium <span class="rng">(0.005–1)</span></span></div>
+          <div class="sw"><span class="dot" style="background:#a61823"></span><span class="en">High <span class="rng">(1–10)</span></span></div>
+          <div class="sw"><span class="dot" style="background:#780116"></span><span class="en">Very High <span class="rng">(≥10)</span></span></div>
         </div>
         <div class="map-attr" id="mapAttr"><div>© Elena Tr.</div><div>Imagery © Google</div></div>
         <div id="tip"><div id="tipCoord"></div><div class="val" id="tipVal"></div></div>
@@ -338,7 +339,7 @@
       cctx.strokeRect(left, top, plotW, ph);
 
       cctx.textBaseline = "middle";
-      cctx.font = font(13);
+      cctx.font = font(11);
       cctx.fillStyle = INK;
       cctx.textAlign = "right";
       cctx.fillText("pieces/m³", left - 6 * u, 10 * u);
@@ -346,7 +347,7 @@
       cctx.fillText("samples", right + 6 * u, 10 * u);
 
       cctx.textBaseline = "middle";
-      cctx.font = font(12);
+      cctx.font = font(10);
       for (let t = 0; t <= 3; t++) {
         const y = yP(maxP * t / 3);
         cctx.strokeStyle = "#2a3340";
@@ -376,7 +377,7 @@
 
       cctx.textAlign = "center";
       cctx.textBaseline = "alphabetic";
-      cctx.font = font(13);
+      cctx.font = font(11);
       for (let i = 0; i < years.length; i++) {
         const x = xAt(i);
         cctx.beginPath();
