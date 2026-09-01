@@ -548,7 +548,7 @@
       const lon = Number(p[1]).toFixed(3);
       const lat = Number(p[0]).toFixed(3);
       const unit = UNITS[p[5]] || UNITS[0];
-      tipCoord.textContent = lon + ", " + lat;
+      tipCoord.textContent = "Longitude " + lon + ", Latitude " + lat;
       tipVal.textContent = fmtMeas(p[4]) + " " + unit;
       tip.style.borderColor = h.color;
       tip.style.display = "block";
