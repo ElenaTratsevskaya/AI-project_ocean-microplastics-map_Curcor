@@ -26,10 +26,10 @@
     .head .src { font-size: 1.45cqh; font-weight: 400; color: #b7c3d4; line-height: 1.15; margin-top: 0.35cqh; }
     .mapbox { height: 75%; width: 90%; margin: 0 auto; position: relative; flex: 0 0 auto; background: #0b1220; }
     #map { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-    .ui { position: absolute; top: calc(10 * 100cqh / 768); left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 1.8cqh; z-index: 3; }
+    .ui { position: absolute; top: calc(10px * var(--u, 1)); left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 1.8cqh; z-index: 3; }
     .ui-btns { display: flex; gap: 1.8cqh; }
     button {
-      appearance: none; border: 0; padding: 0.85cqh 1.5cqh; border-radius: calc(5 * 100cqh / 768);
+      appearance: none; border: 0; padding: 0.85cqh 1.5cqh; border-radius: 5px;
       cursor: pointer; min-width: 20cqh; color: #fff; text-align: center;
       transform: scale(1); opacity: 0.45; filter: saturate(0.7);
       transition: transform 0.2s ease, opacity 0.2s ease, filter 0.2s ease;
@@ -52,9 +52,9 @@
     .bi .en { display: block; font-size: 1.55cqh; line-height: 1.1; color: #fff; }
     #yearNum { font-size: 3.2cqh; font-weight: 650; color: #b7c3d4; line-height: 1.15; transform: translateY(-30%); width: 100%; text-align: center; }
     #pauseIcon {
-      position: absolute; left: 50%; bottom: calc(10 * 100cqh / 768); transform: translateX(-50%); z-index: 3;
+      position: absolute; left: 50%; bottom: calc(10px * var(--u, 1)); transform: translateX(-50%); z-index: 3;
       width: calc(0.85cqh * 2 + 1.55cqh * 1.1); height: calc(0.85cqh * 2 + 1.55cqh * 1.1);
-      background: #b7c3d4; border-radius: calc(5 * 100cqh / 768);
+      background: #b7c3d4; border-radius: 5px;
       display: flex; align-items: center; justify-content: center; gap: 8%;
       cursor: pointer;
     }
@@ -66,11 +66,13 @@
       border-top: 0.9cqh solid transparent; border-bottom: 0.9cqh solid transparent;
       border-left: 1.45cqh solid #3e4764;
     }
-    .legend { position: absolute; border: 0; background: transparent; z-index: 3; color: #e8eef8; padding: calc(3 * 100cqh / 768) calc(6 * 100cqh / 768) calc(3 * 100cqh / 768) 0; border-radius: calc(3 * 100cqh / 768); pointer-events: none; line-height: 1.15; }
-    .legend .cap { font-size: calc(10 * 100cqh / 768); margin-bottom: calc(1 * 100cqh / 768); line-height: 1.15; }
-    .sw { display: flex; align-items: center; gap: calc(4 * 100cqh / 768); margin: 0; line-height: 1.15; }
-    .sw .en { font-size: calc(10 * 100cqh / 768); color: #e8eef8; line-height: 1.15; }
-    .dot { width: calc(6 * 100cqh / 768); height: calc(6 * 100cqh / 768); border-radius: 50%; flex: 0 0 auto; }
+    .legend { position: absolute; border: 0; background: transparent; z-index: 3; color: #e8eef8; padding: calc(3px * var(--u, 1)) calc(6px * var(--u, 1)) calc(3px * var(--u, 1)) 0; border-radius: 3px; pointer-events: none; line-height: 1.15; }
+    .map-attr { position: absolute; z-index: 3; pointer-events: none; color: #b7c3d4; font-size: calc(10px * var(--u, 1)); line-height: 1.15; white-space: nowrap; text-align: right; }
+    .map-attr div { text-align: right; }
+    .legend .cap { font-size: calc(10px * var(--u, 1)); margin-bottom: calc(1px * var(--u, 1)); line-height: 1.15; }
+    .sw { display: flex; align-items: center; gap: calc(4px * var(--u, 1)); margin: 0; line-height: 1.15; }
+    .sw .en { font-size: calc(10px * var(--u, 1)); color: #e8eef8; line-height: 1.15; }
+    .dot { width: calc(6px * var(--u, 1)); height: calc(6px * var(--u, 1)); border-radius: 50%; flex: 0 0 auto; }
     .chartbox { height: 15%; width: 100%; flex: 0 0 auto; background: #0b1220; }
     #chart { display: block; width: 100%; height: 100%; }
   </style>
@@ -106,6 +108,7 @@
           <div class="sw"><span class="dot" style="background:#a61823"></span><span class="en">High</span></div>
           <div class="sw"><span class="dot" style="background:#780116"></span><span class="en">Very High</span></div>
         </div>
+        <div class="map-attr" id="mapAttr"><div>© Elena Tr.</div><div>Imagery © Google</div></div>
       </div>
       <div class="chartbox"><canvas id="chart"></canvas></div>
     </div>
@@ -230,6 +233,11 @@
       legend.style.left = (F.ox + 8 * u) + "px";
       legend.style.top = "auto";
       legend.style.bottom = (S.h - F.oy - F.mh + 10 * u) + "px";
+      const attr = document.getElementById("mapAttr");
+      attr.style.left = "auto";
+      attr.style.right = (S.w - F.ox - F.mw + 8 * u) + "px";
+      attr.style.top = "auto";
+      attr.style.bottom = (S.h - F.oy - F.mh + 10 * u) + "px";
     }
     function strokeSmooth(ctx, pts) {
       if (pts.length < 2) return;
@@ -258,7 +266,10 @@
     function boardU() {
       const b = document.querySelector(".board");
       const h = b ? b.clientHeight : 0;
-      return h > 0 ? h / 768 : 1;
+      const w = b ? b.clientWidth : 0;
+      const u = (w >= 700 || h >= 500 || !(h > 0)) ? 1 : h / 768;
+      if (b) b.style.setProperty("--u", String(u));
+      return u;
     }
     function lineLabel(ctx, en, x, y, color, align, px) {
       ctx.textAlign = align || "left";
@@ -331,6 +342,17 @@
         const nv = maxN * t / 3;
         cctx.fillText(nv >= 1000 ? (nv / 1000).toFixed(1).replace(/\.0$/, "") + "k" : String(Math.round(nv)), right + 6 * u, yN(nv));
       }
+
+      cctx.strokeStyle = RED;
+      cctx.beginPath();
+      cctx.moveTo(left, top);
+      cctx.lineTo(left, top + ph);
+      cctx.stroke();
+      cctx.strokeStyle = BLUE;
+      cctx.beginPath();
+      cctx.moveTo(right, top);
+      cctx.lineTo(right, top + ph);
+      cctx.stroke();
 
       cctx.textAlign = "center";
       cctx.textBaseline = "alphabetic";
