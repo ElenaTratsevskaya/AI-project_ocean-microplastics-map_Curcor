@@ -1,6 +1,11 @@
 # AI-project_ocean-microplastics-map_Curcor
 Microplastic pollution of the world ocean
 
+<div id="header" align="center">
+<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/42/Cursor_logo.svg/1280px-Cursor_logo.svg.png" title="Cursor" width="164" height="40"/>&nbsp;
+</div>
+<br>
+
 Interactive map of marine microplastic samples and pollution classes, 2008–2023. Data: NOAA NCEI Global Marine Microplastics Database.
 Интерактивная карта проб микропластика и классов загрязнения, 2008–2023. <br>
 Данные: NOAA NCEI.
