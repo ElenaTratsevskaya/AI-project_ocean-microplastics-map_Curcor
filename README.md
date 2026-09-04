@@ -85,12 +85,17 @@ Nyadjro et al. (2023). *Scientific Data*. [doi:10.1038/s41597-023-02632-y](https
 
 ### Скриншоты карты
 
-<img width="1152" height="901" alt="01" src="https://github.com/user-attachments/assets/c5b2c0e9-c78e-4b86-b3f7-9b79be1775dd" /> <br><br>
+<img width="1209" height="910" alt="11" src="https://github.com/user-attachments/assets/e56c0722-b5f4-41e1-90b7-ce583a5aa843" />
+<br>
+<img width="1192" height="903" alt="12" src="https://github.com/user-attachments/assets/5183cee5-6553-4b54-874f-81826e57704e" />
+<br>
+<img width="1207" height="901" alt="13" src="https://github.com/user-attachments/assets/234b35bc-bb40-4aba-b1d8-f07ec451f7d6" />
+<br>
+<img width="1209" height="906" alt="14" src="https://github.com/user-attachments/assets/0f4f435c-722b-480c-9ea0-4c4b331087aa" />
 
 
-<img width="1202" height="902" alt="02" src="https://github.com/user-attachments/assets/0b3031fb-3e63-4646-beed-38920f725787" /> <br><br>
 
-<img width="1130" height="895" alt="03" src="https://github.com/user-attachments/assets/98275f04-8ab4-439b-a3ff-66d4a330a3fb" />
+
 
 
 
