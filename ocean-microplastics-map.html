@@ -26,8 +26,8 @@
     .head .src { font-size: 1.45cqh; font-weight: 400; color: #b7c3d4; line-height: 1.15; margin-top: 0.35cqh; }
     .mapbox { height: 75%; width: 90%; margin: 0 auto; position: relative; flex: 0 0 auto; background: #0b1220; }
     #map { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-    .ui { position: absolute; top: calc(10px * var(--u, 1)); left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 1.8cqh; z-index: 3; }
-    .ui-btns { display: flex; gap: 1.8cqh; }
+    .ui { position: absolute; top: calc(10px * var(--u, 1)); left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 1.8cqh; z-index: 3; pointer-events: none; }
+    .ui-btns { display: flex; gap: 1.8cqh; pointer-events: auto; }
     button {
       appearance: none; border: 0; padding: 0.85cqh 1.5cqh; border-radius: 5px;
       cursor: pointer; min-width: 20cqh; color: #fff; text-align: center;
@@ -92,7 +92,7 @@
     <div class="board">
       <div class="head">
         <div>
-          <div class="en">Microplastic pollution of the world ocean (2008-2023)</div>
+          <div class="en">Microplastic pollution of the world ocean (2010-2023)</div>
           <div class="src">Source: NOAA NCEI Global Marine Microplastics Database</div>
         </div>
       </div>
@@ -136,6 +136,10 @@
     const Y0 = 0.045;
     const Y1 = 0.780;
     const Z = 4, TN = 16;
+    const CLUSTER_KM = 340;
+    const MATCH_KM = 950;
+    const PAD_MERC = 0.0065;
+    const HULL_N = 64;
 
     const mapCv = document.getElementById("map");
     const chartCv = document.getElementById("chart");
@@ -152,18 +156,19 @@
 
     let waterOnly = true, pollution = false, yearIndex = 0;
     // NOAA NCEI (Nyadjro 2023): ocean water is 1989–2022; 2023 has no ocean-water
-    // samples (about 25 beach rows only, not packed into D). Axis 2008–2023 is the
+    // samples (about 25 beach rows only, not packed into D). Axis 2010–2023 is the
     // display range. Do not copy 2022 points or yearly counts into 2023.
     const YEARS = [];
-    for (let y = 2008; y <= 2023; y++) YEARS.push(y);
-    let pointScale = 0.18;
-    const YEAR_MS = 1100;
+    for (let y = 2010; y <= 2023; y++) YEARS.push(y);
+    let morphU = 0;
+    const YEAR_MS = 2500;
     let yearT0 = 0;
     let animStarted = false;
     let paused = false;
     let pausedElapsed = 0;
     const tiles = [];
-    let hitPts = [];
+    let hitAreas = [];
+    const clusterBag = { t: {}, f: {} };
 
     function tileUrl(kind, x, y) {
       if (kind === "google") return "https://mt" + ((x + y) % 4) + ".google.com/vt/lyrs=s&hl=en&x=" + x + "&y=" + y + "&z=" + Z;
@@ -211,6 +216,559 @@
       const mh = scale * span;
       return { ox: (w - mw) / 2, oy: (h - mh) / 2, mw: mw, mh: mh, span: span };
     }
+    function distKm(lat1, lon1, lat2, lon2) {
+      const p1 = lat1 * Math.PI / 180, p2 = lat2 * Math.PI / 180;
+      const dp = (lat2 - lat1) * Math.PI / 180, dl = (lon2 - lon1) * Math.PI / 180;
+      const x = Math.sin(dp / 2) * Math.sin(dp / 2) + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) * Math.sin(dl / 2);
+      return 2 * 6371 * Math.asin(Math.min(1, Math.sqrt(x)));
+    }
+    function straddles(lat1, lon1, lat2, lon2, minLat, maxLat, lonW, lonE) {
+      const la = Math.min(lat1, lat2), lb = Math.max(lat1, lat2);
+      if (lb < minLat || la > maxLat) return false;
+      const inBand = (lat1 >= minLat - 2 && lat1 <= maxLat + 2) || (lat2 >= minLat - 2 && lat2 <= maxLat + 2);
+      if (!inBand) return false;
+      return Math.min(lon1, lon2) <= lonW && Math.max(lon1, lon2) >= lonE;
+    }
+    function crossesIsthmus(lat1, lon1, lat2, lon2) {
+      return straddles(lat1, lon1, lat2, lon2, 24.4, 31.2, -82.55, -81.15)
+        || straddles(lat1, lon1, lat2, lon2, 7.0, 10.8, -81.3, -79.5)
+        || straddles(lat1, lon1, lat2, lon2, 10.8, 16.2, -86.8, -83.0)
+        || straddles(lat1, lon1, lat2, lon2, 14.5, 23.5, -97.5, -92.5)
+        || straddles(lat1, lon1, lat2, lon2, 35.5, 37.5, -6.4, -5.15)
+        || straddles(lat1, lon1, lat2, lon2, 29.5, 31.7, 32.15, 32.7)
+        || straddles(lat1, lon1, lat2, lon2, 7.5, 14.2, 98.3, 100.6)
+        || straddles(lat1, lon1, lat2, lon2, -35.2, -33.4, 18.2, 26.2)
+        || straddles(lat1, lon1, lat2, lon2, -55.8, -51.5, -72.2, -67.2)
+        || straddles(lat1, lon1, lat2, lon2, 22.5, 32.5, -112.5, -106.2)
+        || straddles(lat1, lon1, lat2, lon2, 37.6, 45.6, 11.8, 16.4)
+        || straddles(lat1, lon1, lat2, lon2, 8.0, 11.2, -85.2, -83.3)
+        || straddles(lat1, lon1, lat2, lon2, 49.9, 58.6, -5.6, -1.0);
+    }
+    function basin(lat, lon) {
+      if (lat >= 66) return "arctic";
+      if (lat >= 37.6 && lat <= 47 && lon >= -5.4 && lon <= 12.2) return "medwn";
+      if (lat >= 30 && lat < 37.6 && lon >= -5.4 && lon <= 12.2) return "medws";
+      if (lat >= 30 && lat <= 47 && lon > 12.2 && lon <= 36.5) return "mede";
+      if (lat >= 40.5 && lat <= 47.5 && lon >= 26.5 && lon <= 42) return "black";
+      if (lat >= 21 && lat <= 31.2 && lon >= -98 && lon <= -80.6) return "gulf";
+      if (lat >= 7 && lat <= 18.5 && lon <= -90.5) return "pacific";
+      if (lat >= 7 && lat <= 11.2 && lon <= -84.5) return "pacific";
+      if (lat >= 7 && lat <= 23.5 && lon > -90.5 && lon < -59) return "carib";
+      if (lat < 8 && lat >= -56 && lon <= -72) return "pacific";
+      if (lat < 0 && lon <= -70.5) return "pacific";
+      if (lon <= -80.6 || lon >= 110) return "pacific";
+      if (lon >= 20 && lon < 110) return "indian";
+      return "atlantic";
+    }
+    function canMorph(a, b) {
+      if (basin(a.clat, a.clon) !== basin(b.clat, b.clon)) return false;
+      if (a.clat >= 66 || b.clat >= 66) return false;
+      if (crossesIsthmus(a.clat, a.clon, b.clat, b.clon)) return false;
+      if (crossesDateline(a.clon, b.clon)) return false;
+      const ma = mercator(a.clat, a.clon), mb = mercator(b.clat, b.clon);
+      if (Math.abs(ma[0] - mb[0]) > 0.45) return false;
+      if (ma[1] < Y0 + 0.07 || mb[1] < Y0 + 0.07) return false;
+      return true;
+    }
+    function crossesDateline(lon1, lon2) {
+      return Math.abs(lon1 - lon2) > 180;
+    }
+    function hexRgb(h) {
+      h = h.replace("#", "");
+      return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+    }
+    function rgba(h, a) {
+      const c = hexRgb(h);
+      return "rgba(" + c[0] + "," + c[1] + "," + c[2] + "," + a + ")";
+    }
+    function rowsOfYear(y, water) {
+      const rows = D.points[y] || [];
+      return water ? rows.filter(function (p) { return p[2] === 1; }) : rows;
+    }
+    function colorOfClass(c) { return COLORS[c] || COLORS[2]; }
+    function classOfVal(v) {
+      if (!(v >= 0)) return 0;
+      if (v < 0.0005) return 0;
+      if (v < 0.005) return 1;
+      if (v < 1) return 2;
+      if (v < 10) return 3;
+      return 4;
+    }
+    function cross(o, a, b) {
+      return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+    }
+    function convexHull(pts) {
+      const p = pts.slice().sort(function (a, b) { return a[0] - b[0] || a[1] - b[1]; });
+      if (p.length <= 2) return p.slice();
+      const lower = [], upper = [];
+      for (let i = 0; i < p.length; i++) {
+        const pt = p[i];
+        while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], pt) <= 0) lower.pop();
+        lower.push(pt);
+      }
+      for (let i = p.length - 1; i >= 0; i--) {
+        const pt = p[i];
+        while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], pt) <= 0) upper.pop();
+        upper.push(pt);
+      }
+      lower.pop();
+      upper.pop();
+      return lower.concat(upper);
+    }
+    function centroidOf(pts) {
+      let x = 0, y = 0;
+      for (let i = 0; i < pts.length; i++) { x += pts[i][0]; y += pts[i][1]; }
+      const n = pts.length || 1;
+      return [x / n, y / n];
+    }
+    function expandFromCenter(pts, pad) {
+      const c = centroidOf(pts);
+      const out = [];
+      for (let i = 0; i < pts.length; i++) {
+        const dx = pts[i][0] - c[0], dy = pts[i][1] - c[1];
+        const L = Math.hypot(dx, dy);
+        if (L < 1e-9) out.push([pts[i][0] + pad, pts[i][1]]);
+        else out.push([pts[i][0] + dx / L * pad, pts[i][1] + dy / L * pad]);
+      }
+      return out;
+    }
+    function chaikinClosed(pts, iters) {
+      let p = pts;
+      for (let k = 0; k < iters; k++) {
+        const n = [], m = p.length;
+        if (m < 3) break;
+        for (let i = 0; i < m; i++) {
+          const a = p[i], b = p[(i + 1) % m];
+          n.push([0.75 * a[0] + 0.25 * b[0], 0.75 * a[1] + 0.25 * b[1]]);
+          n.push([0.25 * a[0] + 0.75 * b[0], 0.25 * a[1] + 0.75 * b[1]]);
+        }
+        p = n;
+      }
+      return p;
+    }
+    function distSeg(px, py, ax, ay, bx, by) {
+      const abx = bx - ax, aby = by - ay;
+      const den = abx * abx + aby * aby || 1;
+      const t = Math.max(0, Math.min(1, ((px - ax) * abx + (py - ay) * aby) / den));
+      return Math.hypot(px - ax - abx * t, py - ay - aby * t);
+    }
+    function neighborSegs(merc, r) {
+      const segs = [], n = merc.length, lim = r * 2.15;
+      const cell = Math.max(lim, 1e-6);
+      const buckets = {};
+      for (let i = 0; i < n; i++) {
+        const k = Math.floor(merc[i][0] / cell) + "," + Math.floor(merc[i][1] / cell);
+        if (!buckets[k]) buckets[k] = [];
+        buckets[k].push(i);
+      }
+      for (let i = 0; i < n; i++) {
+        const gi = Math.floor(merc[i][0] / cell), gj = Math.floor(merc[i][1] / cell);
+        for (let di = -1; di <= 1; di++) {
+          for (let dj = -1; dj <= 1; dj++) {
+            const b = buckets[(gi + di) + "," + (gj + dj)];
+            if (!b) continue;
+            for (let t = 0; t < b.length; t++) {
+              const j = b[t];
+              if (j <= i) continue;
+              if (Math.hypot(merc[i][0] - merc[j][0], merc[i][1] - merc[j][1]) <= lim) {
+                segs.push([merc[i][0], merc[i][1], merc[j][0], merc[j][1]]);
+              }
+            }
+          }
+        }
+      }
+      return segs;
+    }
+    function fieldAt(x, y, merc, segs, r) {
+      let d = 1e9;
+      for (let i = 0; i < merc.length; i++) {
+        const dd = Math.hypot(x - merc[i][0], y - merc[i][1]);
+        if (dd < d) d = dd;
+      }
+      for (let i = 0; i < segs.length; i++) {
+        const s = segs[i];
+        const dd = distSeg(x, y, s[0], s[1], s[2], s[3]);
+        if (dd < d) d = dd;
+      }
+      return r - d;
+    }
+    function interp0(x1, y1, v1, x2, y2, v2) {
+      const t = v1 / ((v1 - v2) || 1e-12);
+      return [x1 + t * (x2 - x1), y1 + t * (y2 - y1)];
+    }
+    function contourZero(vals, gx, gy, x0, y0, dx, dy) {
+      const segs = [];
+      for (let j = 0; j < gy - 1; j++) {
+        for (let i = 0; i < gx - 1; i++) {
+          const v00 = vals[j * gx + i], v10 = vals[j * gx + i + 1];
+          const v01 = vals[(j + 1) * gx + i], v11 = vals[(j + 1) * gx + i + 1];
+          const idx = (v00 >= 0 ? 1 : 0) | (v10 >= 0 ? 2 : 0) | (v11 >= 0 ? 4 : 0) | (v01 >= 0 ? 8 : 0);
+          if (!idx || idx === 15) continue;
+          const x = x0 + i * dx, y = y0 + j * dy;
+          const bot = interp0(x, y, v00, x + dx, y, v10);
+          const right = interp0(x + dx, y, v10, x + dx, y + dy, v11);
+          const top = interp0(x, y + dy, v01, x + dx, y + dy, v11);
+          const left = interp0(x, y, v00, x, y + dy, v01);
+          if (idx === 1 || idx === 14) segs.push([left, bot]);
+          else if (idx === 2 || idx === 13) segs.push([bot, right]);
+          else if (idx === 4 || idx === 11) segs.push([right, top]);
+          else if (idx === 8 || idx === 7) segs.push([top, left]);
+          else if (idx === 3 || idx === 12) segs.push([left, right]);
+          else if (idx === 6 || idx === 9) segs.push([bot, top]);
+          else if (idx === 5) { segs.push([left, top]); segs.push([bot, right]); }
+          else if (idx === 10) { segs.push([left, bot]); segs.push([right, top]); }
+        }
+      }
+      return segs;
+    }
+    function keyPt(p) {
+      return Math.round(p[0] * 1e6) + "," + Math.round(p[1] * 1e6);
+    }
+    function stitchLoop(segs) {
+      const adj = {};
+      function add(a, b) {
+        const ka = keyPt(a);
+        if (!adj[ka]) adj[ka] = [];
+        adj[ka].push(b);
+      }
+      for (let i = 0; i < segs.length; i++) {
+        add(segs[i][0], segs[i][1]);
+        add(segs[i][1], segs[i][0]);
+      }
+      const used = {};
+      let best = null;
+      for (const ks in adj) {
+        if (used[ks]) continue;
+        const loop = [];
+        let cur = ks, prev = "";
+        let guard = 0;
+        while (cur && !used[cur] && guard++ < 8000) {
+          used[cur] = 1;
+          const xy = cur.split(",");
+          loop.push([parseInt(xy[0], 10) / 1e6, parseInt(xy[1], 10) / 1e6]);
+          const opts = adj[cur];
+          let nxt = null, nk = "";
+          for (let i = 0; i < opts.length; i++) {
+            const k = keyPt(opts[i]);
+            if (k !== prev && !used[k]) { nxt = opts[i]; nk = k; break; }
+          }
+          if (!nxt) {
+            for (let i = 0; i < opts.length; i++) {
+              const k = keyPt(opts[i]);
+              if (k !== prev) { nxt = opts[i]; nk = k; break; }
+            }
+          }
+          prev = cur;
+          cur = nxt ? nk : "";
+        }
+        if (loop.length >= 8 && (!best || loop.length > best.length)) best = loop;
+      }
+      return best;
+    }
+    function resampleClosed(pts, n) {
+      if (!pts || pts.length < 3) return pts || [];
+      let start = 0;
+      for (let i = 1; i < pts.length; i++) if (pts[i][0] > pts[start][0]) start = i;
+      const ring = [];
+      for (let i = 0; i < pts.length; i++) ring.push(pts[(start + i) % pts.length]);
+      const dist = [0];
+      let tot = 0;
+      for (let i = 0; i < ring.length; i++) {
+        const a = ring[i], b = ring[(i + 1) % ring.length];
+        tot += Math.hypot(b[0] - a[0], b[1] - a[1]);
+        dist.push(tot);
+      }
+      if (tot < 1e-12) return circleHull(ring[0][0], ring[0][1], PAD_MERC, n);
+      const out = [];
+      const step = tot / n;
+      let si = 0;
+      for (let i = 0; i < n; i++) {
+        const t = i * step;
+        while (si < dist.length - 2 && dist[si + 1] < t) si++;
+        const a = ring[si % ring.length], b = ring[(si + 1) % ring.length];
+        const span = (dist[si + 1] - dist[si]) || 1e-12;
+        const u = (t - dist[si]) / span;
+        out.push([a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u]);
+      }
+      return out;
+    }
+    function circleHull(mx, my, r, n) {
+      const out = [];
+      for (let i = 0; i < n; i++) {
+        const a = i / n * Math.PI * 2;
+        out.push([mx + Math.cos(a) * r, my + Math.sin(a) * r]);
+      }
+      return out;
+    }
+    function shapeOfMerc(mercPts) {
+      const r = PAD_MERC;
+      if (mercPts.length === 1) return circleHull(mercPts[0][0], mercPts[0][1], r * 1.28, HULL_N);
+      let minX = 1e9, minY = 1e9, maxX = -1e9, maxY = -1e9;
+      for (let i = 0; i < mercPts.length; i++) {
+        const p = mercPts[i];
+        if (p[0] < minX) minX = p[0];
+        if (p[1] < minY) minY = p[1];
+        if (p[0] > maxX) maxX = p[0];
+        if (p[1] > maxY) maxY = p[1];
+      }
+      const pad = r * 1.35;
+      minX -= pad; minY -= pad; maxX += pad; maxY += pad;
+      const cell = r / 3.2;
+      let gx = Math.ceil((maxX - minX) / cell) + 1;
+      let gy = Math.ceil((maxY - minY) / cell) + 1;
+      const cap = 48;
+      if (gx > cap || gy > cap) {
+        const s = Math.max(gx / cap, gy / cap);
+        gx = Math.max(12, Math.round(gx / s));
+        gy = Math.max(12, Math.round(gy / s));
+      }
+      const dx = (maxX - minX) / (gx - 1), dy = (maxY - minY) / (gy - 1);
+      const src = mercPts.length > 80 ? thinPts(mercPts, 80) : mercPts;
+      const segs = neighborSegs(src, r);
+      const vals = new Array(gx * gy);
+      for (let j = 0; j < gy; j++) {
+        for (let i = 0; i < gx; i++) {
+          vals[j * gx + i] = fieldAt(minX + i * dx, minY + j * dy, src, segs, r);
+        }
+      }
+      const raw = stitchLoop(contourZero(vals, gx, gy, minX, minY, dx, dy));
+      if (!raw) return circleHull((minX + maxX) / 2, (minY + maxY) / 2, r, HULL_N);
+      return resampleClosed(chaikinClosed(resampleClosed(raw, HULL_N), 3), HULL_N);
+    }
+    function thinPts(pts, maxn) {
+      if (pts.length <= maxn) return pts;
+      const step = pts.length / maxn, out = [];
+      for (let i = 0; i < maxn; i++) out.push(pts[Math.floor(i * step)]);
+      return out;
+    }
+    function clusterYear(y, water) {
+      const rows = rowsOfYear(y, water);
+      const n = rows.length;
+      if (!n) return [];
+      const cell = CLUSTER_KM / 111;
+      const buckets = {};
+      for (let i = 0; i < n; i++) {
+        const k = Math.floor(rows[i][0] / cell) + "," + Math.floor(rows[i][1] / cell);
+        if (!buckets[k]) buckets[k] = [];
+        buckets[k].push(i);
+      }
+      const vis = new Array(n);
+      for (let i = 0; i < n; i++) vis[i] = 0;
+      const groups = [];
+      for (let i = 0; i < n; i++) {
+        if (vis[i]) continue;
+        const stack = [i];
+        vis[i] = 1;
+        const g = [i];
+        while (stack.length) {
+          const k = stack.pop();
+          const pk = rows[k];
+          const gi = Math.floor(pk[0] / cell), gj = Math.floor(pk[1] / cell);
+          for (let di = -1; di <= 1; di++) {
+            for (let dj = -1; dj <= 1; dj++) {
+              const b = buckets[(gi + di) + "," + (gj + dj)];
+              if (!b) continue;
+              for (let t = 0; t < b.length; t++) {
+                const j = b[t];
+                if (vis[j]) continue;
+                if (distKm(pk[0], pk[1], rows[j][0], rows[j][1]) <= CLUSTER_KM &&
+                    basin(pk[0], pk[1]) === basin(rows[j][0], rows[j][1]) &&
+                    !crossesIsthmus(pk[0], pk[1], rows[j][0], rows[j][1]) &&
+                    !crossesDateline(pk[1], rows[j][1])) {
+                  vis[j] = 1;
+                  stack.push(j);
+                  g.push(j);
+                }
+              }
+            }
+          }
+        }
+        groups.push(g);
+      }
+      const clusters = [];
+      for (let gi = 0; gi < groups.length; gi++) {
+        const idx = groups[gi];
+        const pts = [];
+        const merc = [];
+        let slat = 0, slon = 0, sVal = 0, nVal = 0, unit = 0, unitN = -1;
+        const unitC = [0, 0, 0];
+        for (let k = 0; k < idx.length; k++) {
+          const p = rows[idx[k]];
+          pts.push(p);
+          merc.push(mercator(p[0], p[1]));
+          slat += p[0];
+          slon += p[1];
+          const u = p[5] | 0;
+          if (u >= 0 && u < 3) unitC[u]++;
+          if (isFinite(p[4])) { sVal += p[4]; nVal++; }
+        }
+        if (unitC[0] >= unitC[1] && unitC[0] >= unitC[2]) unit = 0;
+        else if (unitC[1] >= unitC[2]) unit = 1;
+        else unit = 2;
+        unitN = 0;
+        sVal = 0;
+        for (let k = 0; k < pts.length; k++) {
+          if ((pts[k][5] | 0) === unit && isFinite(pts[k][4])) { sVal += pts[k][4]; unitN++; }
+        }
+        const clat = slat / pts.length, clon = slon / pts.length;
+        const mean = unitN ? sVal / unitN : 0;
+        clusters.push({
+          clat: clat,
+          clon: clon,
+          mean: mean,
+          n: pts.length,
+          unit: unit,
+          cls: classOfVal(mean),
+          hull: shapeOfMerc(merc),
+          paint: thinPts(pts, 40)
+        });
+      }
+      return clusters;
+    }
+    function clustersOf(y) {
+      const water = waterOnly;
+      const bag = water ? clusterBag.t : clusterBag.f;
+      if (!bag[y]) bag[y] = clusterYear(y, water);
+      return bag[y];
+    }
+    function easeU(u) {
+      u = u < 0 ? 0 : u > 1 ? 1 : u;
+      return u * u * (3 - 2 * u);
+    }
+    function lerpHull(a, b, t) {
+      const out = [];
+      for (let i = 0; i < HULL_N; i++) {
+        out.push([a[i][0] * (1 - t) + b[i][0] * t, a[i][1] * (1 - t) + b[i][1] * t]);
+      }
+      return out;
+    }
+    function scaleHull(hull, mx, my, k) {
+      const out = [];
+      for (let i = 0; i < hull.length; i++) {
+        out.push([mx + (hull[i][0] - mx) * k, my + (hull[i][1] - my) * k]);
+      }
+      return out;
+    }
+    function mercOf(c) { return mercator(c.clat, c.clon); }
+    function matchClusters(A, B) {
+      const dist = [];
+      for (let i = 0; i < A.length; i++) {
+        for (let j = 0; j < B.length; j++) {
+          dist.push({ i: i, j: j, d: distKm(A[i].clat, A[i].clon, B[j].clat, B[j].clon) });
+        }
+      }
+      dist.sort(function (a, b) { return a.d - b.d; });
+      const usedA = {}, usedB = {};
+      const pairs = [];
+      for (let k = 0; k < dist.length; k++) {
+        const p = dist[k];
+        if (usedA[p.i] || usedB[p.j] || p.d > MATCH_KM || !canMorph(A[p.i], B[p.j])) continue;
+        usedA[p.i] = 1;
+        usedB[p.j] = 1;
+        pairs.push([A[p.i], B[p.j]]);
+      }
+      const fadeOut = [], fadeIn = [];
+      for (let i = 0; i < A.length; i++) if (!usedA[i]) fadeOut.push(A[i]);
+      for (let j = 0; j < B.length; j++) if (!usedB[j]) fadeIn.push(B[j]);
+      return { pairs: pairs, fadeOut: fadeOut, fadeIn: fadeIn };
+    }
+    function toScreen(m, F) {
+      return [F.ox + m[0] * F.mw, F.oy + (m[1] - Y0) / F.span * F.mh];
+    }
+    function hullScreen(hull, F) {
+      const out = [];
+      for (let i = 0; i < hull.length; i++) out.push(toScreen(hull[i], F));
+      return out;
+    }
+    function inPoly(x, y, poly) {
+      let inside = false;
+      for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const xi = poly[i][0], yi = poly[i][1], xj = poly[j][0], yj = poly[j][1];
+        const inter = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / ((yj - yi) || 1e-9) + xi);
+        if (inter) inside = !inside;
+      }
+      return inside;
+    }
+    function pathHull(ctx, pts) {
+      const n = pts.length;
+      ctx.beginPath();
+      if (n < 2) return;
+      if (n < 6) {
+        ctx.moveTo(pts[0][0], pts[0][1]);
+        for (let i = 1; i < n; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+        ctx.closePath();
+        return;
+      }
+      ctx.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 0; i < n; i++) {
+        const p0 = pts[(i - 1 + n) % n];
+        const p1 = pts[i];
+        const p2 = pts[(i + 1) % n];
+        const p3 = pts[(i + 2) % n];
+        ctx.bezierCurveTo(
+          p1[0] + (p2[0] - p0[0]) / 6,
+          p1[1] + (p2[1] - p0[1]) / 6,
+          p2[0] - (p3[0] - p1[0]) / 6,
+          p2[1] - (p3[1] - p1[1]) / 6,
+          p2[0], p2[1]
+        );
+      }
+      ctx.closePath();
+    }
+    function lastCumBefore(arr, yStart) {
+      let v = 0;
+      for (let i = 0; i < D.years.length; i++) {
+        if (D.years[i] < yStart) v = arr[i];
+        else break;
+      }
+      return v;
+    }
+    function drawBlob(F, hull, alpha, stats, paintPts, paintAlpha) {
+      if (alpha < 0.02 || hull.length < 3) return;
+      const sh = hullScreen(hull, F);
+      let vis = false;
+      for (let i = 0; i < sh.length; i++) {
+        const yy = sh[i][1];
+        if (yy >= F.oy - 4 && yy <= F.oy + F.mh + 4) { vis = true; break; }
+      }
+      if (!vis) return;
+      const col = pollution ? colorOfClass(stats.cls) : SAMPLE;
+      mctx.save();
+      mctx.globalAlpha = alpha;
+      pathHull(mctx, sh);
+      mctx.clip();
+      pathHull(mctx, sh);
+      if (pollution) {
+        mctx.fillStyle = rgba(col, 0.42);
+        mctx.fill();
+        const rad = Math.max(24, F.mw * 0.028);
+        const src = paintPts || stats.paint;
+        const pa = paintAlpha == null ? 1 : paintAlpha;
+        for (let i = 0; i < src.length; i++) {
+          const p = src[i];
+          const m = mercator(p[0], p[1]);
+          const s = toScreen(m, F);
+          const pc = colorOfClass(p[3]);
+          const g = mctx.createRadialGradient(s[0], s[1], 0, s[0], s[1], rad);
+          g.addColorStop(0, rgba(pc, 0.8 * pa));
+          g.addColorStop(1, rgba(pc, 0));
+          mctx.fillStyle = g;
+          mctx.fillRect(s[0] - rad, s[1] - rad, rad * 2, rad * 2);
+        }
+      } else {
+        mctx.fillStyle = rgba(SAMPLE, 0.55);
+        mctx.fill();
+      }
+      mctx.restore();
+      mctx.save();
+      mctx.globalAlpha = Math.min(1, alpha * 1.15);
+      pathHull(mctx, sh);
+      mctx.strokeStyle = pollution ? rgba(col, 0.95) : rgba(SAMPLE, 0.95);
+      mctx.lineWidth = Math.max(1.2, F.mw * 0.0011);
+      mctx.stroke();
+      mctx.restore();
+      hitAreas.push({ hull: sh, color: col, clat: stats.clat, clon: stats.clon, mean: stats.mean, unit: stats.unit, n: stats.n });
+    }
     function drawMap() {
       const S = fitCanvas(mapCv, mctx);
       mctx.fillStyle = "#0b1220";
@@ -225,29 +783,45 @@
       }
       mctx.fillStyle = "rgba(0,0,0,0.28)";
       mctx.fillRect(F.ox, F.oy, F.mw, F.mh);
-      const pts = pointsOfYear(YEARS[yearIndex]);
-      hitPts = [];
-      for (let i = 0; i < pts.length; i++) {
-        const p = pts[i];
-        const m = mercator(p[0], p[1]);
-        const x = F.ox + m[0] * F.mw;
-        const yy = F.oy + (m[1] - Y0) / F.span * F.mh;
-        if (yy < F.oy - 4 || yy > F.oy + F.mh + 4) continue;
-        mctx.beginPath();
-        mctx.globalAlpha = 0.92;
-        let col, rad;
-        if (pollution) {
-          col = COLORS[p[3]] || COLORS[2];
-          rad = 3.52 * pointScale;
-        } else {
-          col = SAMPLE;
-          rad = 2.86 * pointScale;
-        }
-        mctx.fillStyle = col;
-        mctx.arc(x, yy, rad, 0, Math.PI * 2);
-        mctx.fill();
-        hitPts.push({ x: x, y: yy, r: rad, p: p, color: col });
+      hitAreas = [];
+      mctx.save();
+      mctx.beginPath();
+      mctx.rect(F.ox, F.oy, F.mw, F.mh);
+      mctx.clip();
+      const yA = YEARS[yearIndex];
+      const yB = YEARS[(yearIndex + 1) % YEARS.length];
+      const t = easeU(morphU);
+      const A = clustersOf(yA);
+      const B = (yearIndex + 1 < YEARS.length) ? clustersOf(yB) : [];
+      const matched = matchClusters(A, B);
+      for (let i = 0; i < matched.fadeOut.length; i++) {
+        const cl = matched.fadeOut[i];
+        const c = mercOf(cl);
+        const k = 1 - 0.82 * t;
+        drawBlob(F, scaleHull(cl.hull, c[0], c[1], k), 1 - t, cl, cl.paint, 1);
       }
+      for (let i = 0; i < matched.pairs.length; i++) {
+        const a = matched.pairs[i][0], b = matched.pairs[i][1];
+        const hull = lerpHull(a.hull, b.hull, t);
+        const stats = t < 0.5 ? a : b;
+        const mixed = {
+          clat: a.clat * (1 - t) + b.clat * t,
+          clon: a.clon * (1 - t) + b.clon * t,
+          mean: stats.mean,
+          n: stats.n,
+          unit: stats.unit,
+          cls: stats.cls,
+          paint: stats.paint
+        };
+        drawBlob(F, hull, 1, mixed, stats.paint, 1);
+      }
+      for (let i = 0; i < matched.fadeIn.length; i++) {
+        const cl = matched.fadeIn[i];
+        const c = mercOf(cl);
+        const k = 0.18 + 0.82 * t;
+        drawBlob(F, scaleHull(cl.hull, c[0], c[1], k), t, cl, cl.paint, 1);
+      }
+      mctx.restore();
       mctx.globalAlpha = 1;
       const u = boardU();
       const legend = document.getElementById("legend");
@@ -314,13 +888,16 @@
       const font = function (px) { return (px * u) + "px Segoe UI, system-ui, sans-serif"; };
       const years = [], nY = [], cumP = [], cumN = [];
       let lastP = 0, lastN = 0;
-      for (let y = 2008; y <= 2023; y++) {
+      const yStart = YEARS[0];
+      const baseP = lastCumBefore(waterOnly ? D.cumPWater : D.cumPAll, yStart);
+      const baseN = lastCumBefore(waterOnly ? D.cumNWater : D.cumNAll, yStart);
+      for (let y = yStart; y <= 2023; y++) {
         years.push(y);
         const idx = D.years.indexOf(y);
         if (idx >= 0) {
           nY.push(waterOnly ? D.nWater[idx] : D.nAll[idx]);
-          lastP = waterOnly ? D.cumPWater[idx] : D.cumPAll[idx];
-          lastN = waterOnly ? D.cumNWater[idx] : D.cumNAll[idx];
+          lastP = (waterOnly ? D.cumPWater[idx] : D.cumPAll[idx]) - baseP;
+          lastN = (waterOnly ? D.cumNWater[idx] : D.cumNAll[idx]) - baseN;
           cumP.push(lastP);
           cumN.push(lastN);
         } else {
@@ -485,9 +1062,10 @@
       animStarted = true;
       yearIndex = 0;
       yearT0 = performance.now();
-      pointScale = pointScaleAt(0);
+      morphU = 0;
       draw();
       requestAnimationFrame(tick);
+      prefetchRest(0);
     }
     function maybeStart() {
       if (animStarted || startWait) return;
@@ -495,10 +1073,11 @@
       startWait = setTimeout(startAnim, 400);
     }
     let startWait = 0;
-    function pointScaleAt(u) {
-      const s = u < 0.5 ? u * 2 : 2 - u * 2;
-      const e = s * s * (3 - 2 * s);
-      return 0.18 + 1.07 * e;
+    function prefetchRest(i) {
+      if (i >= YEARS.length) return;
+      const y = YEARS[i];
+      if (!clusterBag.t[y]) clusterBag.t[y] = clusterYear(y, true);
+      setTimeout(function () { prefetchRest(i + 1); }, 0);
     }
     function tick(now) {
       if (paused) {
@@ -518,7 +1097,7 @@
         elapsed -= YEAR_MS;
         yearChanged = true;
       }
-      pointScale = pointScaleAt(elapsed / YEAR_MS);
+      morphU = elapsed / YEAR_MS;
       drawMap();
       if (yearChanged) {
         yearEl.textContent = String(YEARS[yearIndex]);
@@ -534,30 +1113,40 @@
       return String(Number(n.toPrecision(3)));
     }
     function findHit(x, y) {
-      let best = null, bestD = 1e9;
-      for (let i = 0; i < hitPts.length; i++) {
-        const h = hitPts[i];
-        const dx = x - h.x, dy = y - h.y;
-        const d = dx * dx + dy * dy;
-        const lim = Math.max(h.r + 4, 8);
-        if (d <= lim * lim && d < bestD) { bestD = d; best = h; }
+      let best = null, bestA = 1e9;
+      for (let i = 0; i < hitAreas.length; i++) {
+        const h = hitAreas[i];
+        if (!inPoly(x, y, h.hull)) continue;
+        let minX = 1e9, minY = 1e9, maxX = -1e9, maxY = -1e9;
+        for (let k = 0; k < h.hull.length; k++) {
+          const p = h.hull[k];
+          if (p[0] < minX) minX = p[0];
+          if (p[1] < minY) minY = p[1];
+          if (p[0] > maxX) maxX = p[0];
+          if (p[1] > maxY) maxY = p[1];
+        }
+        const a = (maxX - minX) * (maxY - minY);
+        if (a < bestA) { bestA = a; best = h; }
       }
       return best;
     }
     function showTip(h) {
-      const p = h.p;
-      const lon = Number(p[1]).toFixed(3);
-      const lat = Number(p[0]).toFixed(3);
-      const unit = UNITS[p[5]] || UNITS[0];
+      const lon = Number(h.clon).toFixed(3);
+      const lat = Number(h.clat).toFixed(3);
+      const unit = UNITS[h.unit] || UNITS[0];
       tipCoord.textContent = "Lat " + lat + ", Lon " + lon;
-      tipVal.textContent = fmtMeas(p[4]) + " " + unit;
+      tipVal.textContent = fmtMeas(h.mean) + " " + unit;
       tip.style.borderColor = h.color;
       tip.style.display = "block";
       const box = document.querySelector(".mapbox");
       const tw = tip.offsetWidth, th = tip.offsetHeight, bw = box.clientWidth, bh = box.clientHeight;
-      let left = h.x + 8, top = h.y + 8;
-      if (left + tw > bw - 4) left = h.x - tw - 8;
-      if (top + th > bh - 4) top = h.y - th - 8;
+      let cx = 0, cy = 0;
+      for (let i = 0; i < h.hull.length; i++) { cx += h.hull[i][0]; cy += h.hull[i][1]; }
+      const n = h.hull.length || 1;
+      cx /= n; cy /= n;
+      let left = cx + 8, top = cy + 8;
+      if (left + tw > bw - 4) left = cx - tw - 8;
+      if (top + th > bh - 4) top = cy - th - 8;
       if (left < 4) left = 4;
       if (top < 4) top = 4;
       tip.style.left = left + "px";
